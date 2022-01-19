@@ -1,42 +1,55 @@
+
 const express = require('express')
 const app = express()
 const port = 3000
 const bodyParser = require('body-parser')
 const res = require('express/lib/response')
 const fs = require('fs');
-const fileName = './user.json';
+const fileName = './users.json';
 const { v4: uuidv4 } = require("uuid");
 const { param } = require('express/lib/request')
-const userRouter = require('./routers/usersRouter');
-app.use(bodyParser.json()) // parse body to string and call next 
-app.use('/users' , usersRouter);
-const logIn = (req, res, next) => {
-    if (!(req.body.name || req.body.password)) {
-        return res.status(400).send({ error: "you should enter name and password" })
+const userRouter = require('./routers/userRouter');
+var jwt = require('jsonwebtoken');
+const serverConfig = require('./serverConfig');
+const { auth } = require('./middlewares/auth')
+const User = require('./models/User');
+require('./mongoConnect')
+
+
+
+
+app.use(bodyParser.json()) 
+
+app.use('/users', userRouter);
+
+
+const logIn = async (req, res, next) => {
+    const { username, password } = req.body;
+    const user = await User.findOne({username});
+    if (user && password == user.password) {
+        const payload = { id: user.id, name: user.name };
+        //console.log(payload.id);
+        const token = jwt.sign(payload, serverConfig.secret, { expiresIn: "1d" });
+        return res.send({ massage: "login sucess", token })
     }
-    let arr = [];
-    fs.readFile(fileName, { encoding: 'utf8' }, (err, data) => {
-        arr = JSON.parse(data);
-        const check = arr.some(i => i.name == req.body.name);
-        const check1 = arr.some(i => i.password == req.body.password);
-        if (check && check1) {
-            return res.send({ massage: "login sucess" })
-        }
-        else {
-            return res.status(400).send({ error: "not found this mail" })
-        }
-    });
+    else {
+        return res.status(400).send({ error: "not found this mail" })
+    }
 }
-const getUsers = (req, res, next) => {
-    let arr = [];
-    fs.readFile(fileName, { encoding: 'utf8' }, (err, data) => {
-        arr = JSON.parse(data);
-        for (const uname of arr) {
-            console.log(uname.name);
-        }
-    });
-    return res.send({ massage: "Get Users Succeffully" })
+
+const getUsers = async(req, res, next) => {
+    const user = await User.find({});
+    if(user)
+    {
+        return res.send({ user,massage: "Get Users Succeffully" })
+    }
+    else
+    {
+        return res.send({ massage: "error" })
+    }
 }
+
+
 
 
 app.post('/login', logIn, (req, res) => {
@@ -44,16 +57,16 @@ app.post('/login', logIn, (req, res) => {
     res.send("sucess login");
     //next();
 })
-app.get('/getusers', getUsers, (req, res) => {
+app.get('/getusers', auth, getUsers, (req, res) => {
     debugger
     res.send("sucess login");
     //next();
 })
-app.use((err , req , res , next)=>{
-    if(err.status >=500)
-    {
+
+app.use((err, req, res, next) => {
+    if (err.status >= 500) {
         console.log(err.internalMassage);
-        return res.status(500).send({error:"internal server error"})
+        return res.status(500).send({ error: "internal server error" })
     }
     res.status(err.status).send(err.massage);
 })
