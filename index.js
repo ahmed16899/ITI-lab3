@@ -1,85 +1,62 @@
 const express = require('express')
-const fs = require('fs')
 const app = express()
 const port = 3000
 const bodyParser = require('body-parser')
-const userRouter = require('./routers/usersRouter')
-const {logRequest} = require('./generalHelpers')
+const res = require('express/lib/response')
+const fs = require('fs');
+const fileName = './users.json';
 const { v4: uuidv4 } = require("uuid");
-
-app.use(bodyParser.json())
-/*
-https://www.youtube.com/playlist?list=PLdRrBA8IaU3Xp_qy8X-1u-iqeLlDCmR8a
-Fork the project 
-git clone {url}
-npm i
-
-
-Create server with the following end points 
-POST /users with uuid, unique username 
-PATCH /users/id 
-GET /users with age filter 
-Create Error handler 
-POST /users/login /sucess 200 , error:403
-GET /users/id   200,   eror:404
-DELETE users/id  200,    error:404
-complete middleware for validating user
-Create Route For users 
-
-Bonus
-Edit patch end point to handle the sent data only
-If age is not sent return all users
-
-
-git add .
-git commit -m "message"
-git push
-*/
-
-app.post("/users", validateUser, async (req, res, next) => {
-  try {
-      const { username, age, password } = req.body;
-      const data = await fs.promises
-          .readFile("./user.json", { encoding: "utf8" })
-          .then((data) => JSON.parse(data));
-      const id = uuidv4();
-      data.push({ id, username, age, password });
-      await fs.promises.writeFile("./user.json", JSON.stringify(data), {
-          encoding: "utf8",
-      });
-      res.send({ id, message: "sucess" });
-  } catch (error) {
-      next({ status: 500, internalMessage: error.message });
-  }
-});
-
-app.patch("/users/:userId", validateUser, async (req, res, next) => {
-
-});
+const { param } = require('express/lib/request')
+const userRouter = require('./routers/userRouter');
+app.use(bodyParser.json()) // parse body to string and call next 
+app.use('/users' , usersRouter);
+const logIn = (req, res, next) => {
+    if (!(req.body.name || req.body.password)) {
+        return res.status(400).send({ error: "you should enter name and password" })
+    }
+    let arr = [];
+    fs.readFile(fileName, { encoding: 'utf8' }, (err, data) => {
+        arr = JSON.parse(data);
+        const check = arr.some(i => i.name == req.body.name);
+        const check1 = arr.some(i => i.password == req.body.password);
+        if (check && check1) {
+            return res.send({ massage: "login sucess" })
+        }
+        else {
+            return res.status(400).send({ error: "not found this mail" })
+        }
+    });
+}
+const getUsers = (req, res, next) => {
+    let arr = [];
+    fs.readFile(fileName, { encoding: 'utf8' }, (err, data) => {
+        arr = JSON.parse(data);
+        for (const uname of arr) {
+            console.log(uname.name);
+        }
+    });
+    return res.send({ massage: "Get Users Succeffully" })
+}
 
 
-app.get('/users', async (req,res,next)=>{
-  try {
-  const age = Number(req.query.age)
-  const users = await fs.promises
-  .readFile("./user.json", { encoding: "utf8" })
-  .then((data) => JSON.parse(data));
-  const filteredUsers = users.filter(user=>user.age===age)
-  res.send(filteredUsers)
-  } catch (error) {
-  next({ status: 500, internalMessage: error.message });
-  }
-
+app.post('/login', logIn, (req, res) => {
+    debugger
+    res.send("sucess login");
+    //next();
 })
-
-app.use(logRequest)
-
-app.use((err,req,res,next)=>{
-
+app.get('/getusers', getUsers, (req, res) => {
+    debugger
+    res.send("sucess login");
+    //next();
 })
-
-
-
+app.use((err , req , res , next)=>{
+    if(err.status >=500)
+    {
+        console.log(err.internalMassage);
+        return res.status(500).send({error:"internal server error"})
+    }
+    res.status(err.status).send(err.massage);
+})
 app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`)
+    console.log(`Example app listening at http://localhost:${port}`)
 })
