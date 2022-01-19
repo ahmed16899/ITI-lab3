@@ -4,10 +4,10 @@ const port = 3000
 const bodyParser = require('body-parser')
 const res = require('express/lib/response')
 const fs = require('fs');
-const fileName = './users.json';
+const fileName = './user.json';
 const { v4: uuidv4 } = require("uuid");
 const { param } = require('express/lib/request')
-const userRouter = require('./routers/userRouter');
+const userRouter = require('./routers/usersRouter');
 app.use(bodyParser.json()) // parse body to string and call next 
 app.use('/users' , usersRouter);
 const logIn = (req, res, next) => {
